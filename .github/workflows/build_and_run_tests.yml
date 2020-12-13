@@ -1,0 +1,13 @@
+name: build_and_run_tests
+on: [push]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: configure
+      run: mkdir build && cd build && cmake ..
+    - name: build
+      run: cd build && cmake --build .
+    - name: test
+      run: cd build && ctest --verbose
