@@ -1,6 +1,7 @@
 #include "input.h"
 
 #include <iostream>
+#include <algorithm>
 
 #include <fstream>
 #include <string>
