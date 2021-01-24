@@ -4,11 +4,15 @@
 
 #include "scanner.h"
 #include "error.h"
+#include "symbol_table.h"
 
 class Parser {
     public:
         Parser(Scanner *p_s);
         ~Parser();
+
+        SymbolTable *symtab;
+        SymbolTableBuilder stb;
 
         Error start();
         std::string get_err_string() { return err_string; }

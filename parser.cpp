@@ -5,6 +5,7 @@
 #include "scanner.h"
 #include "error.h"
 #include "symbol_names.h"
+#include "symbol_table.h"
 
 #define EXPECT_T(expected)                                                                                                  \
     if (sym != expected) {                                                                                                    \
@@ -22,15 +23,27 @@
 Parser::Parser(Scanner *p_s) {
     s = p_s;
     sym = s->getSym();
+    symtab = new SymbolTable;
 }
 
-Parser::~Parser() {}
+Parser::~Parser() {
+}
 
 /* class = “class“ ident classbody; */
 Error Parser::start() {
+    stb.setSymbolTable(symtab);
+    stb.begin(ObjClass::Class);
+
     EXPECT_T(Scanner::CLASS)
     EXPECT_T(Scanner::IDENT)
+
+    stb.pushName(s->getId());
+
     EXPECT_N(classbody())
+
+    stb.commit();
+    symtab->print();
+
 
     return OK;
 }
@@ -53,18 +66,21 @@ Error Parser::declarations() {
         rollback = s->position();
         rollback_sym = sym;
     };
+    stb.abort();
     s->seek(rollback);
     sym = rollback_sym;
     while (!local_declaration()) {
         rollback = s->position();
         rollback_sym = sym;
     };
+    stb.abort();
     s->seek(rollback);
     sym = rollback_sym;
     while (!method_declaration()) {
         rollback = s->position();
         rollback_sym = sym;
     };
+    stb.abort();
     s->seek(rollback);
     sym = rollback_sym;
 
@@ -74,21 +90,39 @@ Error Parser::declarations() {
 
 /* final_declaration = “final” type ident “=” expression “;”; */
 Error Parser::final_declaration() {
+    stb.begin(ObjClass::Const);
     EXPECT_T(Scanner::FINAL)
     EXPECT_N(type())
+    switch (sym) {
+        case Scanner::TYPE_INT:
+            stb.pushType(Type::Int);
+            break;
+        case Scanner::TYPE_VOID:
+            stb.pushType(Type::Void);
+            break;
+    }
+
     EXPECT_T(Scanner::IDENT)
+    stb.pushName(s->getId());
+
+    // TODO: Infer value of constant expression.
     EXPECT_T(Scanner::ASSIGN)
     EXPECT_N(expression())
     EXPECT_T(Scanner::SEMICOLON)
 
+    stb.commit();
 
     return OK;
 }
 
 /* method_declaration = method_head method_body; */
 Error Parser::method_declaration() {
+    stb.begin(ObjClass::Proc);
+
     EXPECT_N(method_head())
     EXPECT_N(method_body())
+
+    stb.commit();
     return OK;
 }
 
@@ -97,6 +131,7 @@ Error Parser::method_head() {
     EXPECT_T(Scanner::PUBLIC)
     EXPECT_N(method_type());
     EXPECT_T(Scanner::IDENT);
+    stb.pushName(s->getId());
     EXPECT_N(formal_parameters());
 
     return OK;
@@ -105,6 +140,7 @@ Error Parser::method_head() {
 /* method_type = “void” | type; */
 Error Parser::method_type() {
     if (sym == Scanner::TYPE_VOID) {
+        stb.pushType(Type::Void);
         sym = s->getSym();
         return OK;
     } else {
@@ -147,6 +183,7 @@ Error Parser::method_body() {
     while(!local_declaration()){
         rollback = s->position();
     };
+    stb.abort();
     s->seek(rollback);
     EXPECT_N(statement_sequence())
     EXPECT_T(Scanner::RBRACE)
@@ -156,10 +193,13 @@ Error Parser::method_body() {
 
 /* local_declaration = type ident “;”; */
 Error Parser::local_declaration() {
+    stb.begin(ObjClass::Var);
     EXPECT_N(type())
     EXPECT_T(Scanner::IDENT)
+    stb.pushName(s->getId());
     EXPECT_T(Scanner::SEMICOLON)
 
+    stb.commit();
     return OK;
 }
 
@@ -205,6 +245,7 @@ Error Parser::statement() {
 /* Keeping the possibility for more types open here. */
 Error Parser::type() {
     if (sym == Scanner::TYPE_INT) {
+        stb.pushType(Type::Int);
         sym = s->getSym();
         return OK;
     } else {
