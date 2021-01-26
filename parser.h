@@ -7,7 +7,14 @@
 #include "symbol_table.h"
 
 class Parser {
+
     public:
+        enum Notification {
+            BEGIN_NONTERMINAL,
+            PARSED_NONTERMINAL,
+            PARSED_TERMINAL
+        };
+
         Parser(Scanner *p_s);
         ~Parser();
 
@@ -16,8 +23,9 @@ class Parser {
 
         Error start();
         std::string get_err_string() { return err_string; }
-    private:
+
         Scanner *s = nullptr;
+    private:
         Scanner::Symbol sym;
         
         Error err;
@@ -47,4 +55,6 @@ class Parser {
         Error simple_expression();
         Error term();
         Error factor();
+
+        void notify(Notification what, Scanner::Symbol terminal, std::string nonterminal);
 };

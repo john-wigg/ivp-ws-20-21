@@ -1,4 +1,5 @@
 #include "symbol_table.h"
+#include "scanner.h"
 
 #include <iostream>
 
@@ -74,4 +75,60 @@ void SymbolTableBuilder::abort() {
         cur_symtab = cur_symtab->enclose;
     }
     obj_stack.pop_back();
+}
+
+void SymbolTableBuilder::parserUpdate(int what, Scanner::Symbol terminal, std::string nonterminal, std::string last_id) {
+    if (what == 0) {
+        if (nonterminal == "class") {
+            begin(ObjClass::Class);
+        } else if (nonterminal == "method_declaration") {
+            begin(ObjClass::Proc);
+        } else if (nonterminal == "local_declaration") {
+            begin(ObjClass::Var);
+        } else if (nonterminal == "final_declaration") {
+            begin(ObjClass::Const);
+        } else if (nonterminal == "formal_parameters") {
+            formal_parameters = true;
+        }
+    } else if (what == 1) {
+        ObjClass parsed_class;
+        if (nonterminal == "class") {
+            parsed_class = ObjClass::Class;
+        } else if (nonterminal == "method_declaration") {
+            parsed_class = ObjClass::Proc;
+        } else if (nonterminal == "local_declaration") {
+            parsed_class = ObjClass::Var;
+        } else if (nonterminal == "final_declaration") {
+            parsed_class = ObjClass::Const;
+        } else {
+            if (nonterminal == "formal_parameters") {
+                formal_parameters = false;
+            }
+            return;
+        }
+
+        while (parsed_class != getCurObjClass()) abort();
+
+        commit();
+    } else if (what == 2) {
+        switch(terminal) {
+            case Scanner::IDENT:
+                if (formal_parameters) {
+                    obj_stack.back()->parameter_list_names.push_back(last_id);
+                } else {
+                    obj_stack.back()->name = last_id;
+                }
+                break;
+            case Scanner::TYPE_INT:
+                if (formal_parameters) {
+                    obj_stack.back()->parameter_list_types.push_back(Type::Int);
+                } else {
+                    obj_stack.back()->type = Type::Int;
+                }
+                break;
+            case Scanner::TYPE_VOID:
+                obj_stack.back()->type = Type::Void;
+                break;
+        }
+    }
 }
